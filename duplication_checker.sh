@@ -80,7 +80,7 @@ function main(){
 
     print "RESULT" header
     print "Parsing Result" sub
-    duplication_=$(cat $_RES_FILE_ | awk '{print $1}' | sort -k 1 | uniq -cd | sort -r | sed 's/^[[:blank:]]*//;s/ /*/g')
+    duplication_=$(cat $_RES_FILE_ | awk '{print $1}' | sort -k 1 | uniq -cd | sed 's/^[[:blank:]]*//;s/ /*/g' | sort -t '*' -nk 1,1)
     check
     
     for i in $duplication_; do
