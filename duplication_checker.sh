@@ -6,6 +6,7 @@
 varFolder="$1"
 varResultFile="$(pwd)/duplication-result.txt"
 varSafeToDelete="$(pwd)/safe-to-delete.txt"
+varDeletedLog="$(pwd)/deleted-file.txt"
 varRegexFind="^.*$"
 
 # List of Colors
@@ -71,6 +72,17 @@ function funcCheck(){
     fi
 }
 
+function funcDelete(){
+    funcPrint "DUPLICATION CHECKER [ delete mode ]" title
+        [ ! -f "$varSafeToDelete" ] && funcPrint "File $varSafeToDelete not exist" header && exit 3
+
+        funcPrint "DELETE" header
+            funcPrint "Deleting duplicate file" sub
+                cat "$varSafeToDelete" \
+                | xargs -IX -n1 -P0 bash -c 'rm -rfv "X" >> '$varDeletedLog''
+            funcCheck
+}
+
 
 
 # ========================================================== Logic
@@ -85,7 +97,7 @@ function main(){
 
         funcPrint "CHECK" header
             funcPrint "Remove Result File" sub
-                rm -rf $varResultFile $varSafeToDelete
+                rm -rf $varResultFile $varSafeToDelete $varDeletedLog errFind.log
             funcCheck
 
             funcPrint "Checking Duplication" sub
@@ -95,7 +107,7 @@ function main(){
 
         funcPrint "RESULT" header
             funcPrint "Parsing Result" sub
-                varListDuplication=$(awk '{print $1}' $varResultFile | sort -k1 | uniq -cd | sed 's/^[[:blank:]]*//; s/ /*/g' | sort -t '*' -nk 1,1)
+                varListDuplication=$(awk '{print $1}' $varResultFile 2>/dev/null | sort -k1 | uniq -cd | sed 's/^[[:blank:]]*//; s/ /*/g' | sort -t '*' -nk 1,1)
             funcCheck
         
             for i in $varListDuplication; do
@@ -114,9 +126,9 @@ function main(){
 
     funcPrint "SUMMARY" header
     funcPrint "Time" summary "$varTotalHours : $varTotalMinutes : $varTotalSeconds"
-    funcPrint "Scanned File" summary "$(grep -iE '^\w+' $varResultFile | wc -l) File(s)"
+    funcPrint "Scanned File" summary "$(grep -iE '^\w+' $varResultFile 2>/dev/null | wc -l) File(s)"
     funcPrint "Total Duplication" summary "$varTotalDuplicate Item(s)"
-    funcPrint "Total Identic File" summary "$(grep -iE '^==' $varResultFile | wc -l) File(s)"
+    funcPrint "Total Identic File" summary "$(grep -iE '^==' $varResultFile 2>/dev/null | wc -l) File(s)"
     funcPrint "Folder" summary "$varFolder"
     funcPrint "Result File" summary "$varResultFile"
     funcPrint "Safe to delete" summary "$varSafeToDelete"
@@ -125,4 +137,14 @@ function main(){
 }
 
 clear
-main
+
+case "$1" in
+
+  d|del|delete|delMode|deleteMode)
+    funcDelete
+    ;;
+
+  *)
+    main
+    ;;
+esac
