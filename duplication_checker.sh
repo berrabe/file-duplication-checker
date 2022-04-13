@@ -1,53 +1,61 @@
 #!/bin/bash
 
 
-# START ============================================= VAR
+# ========================================================== Var
 
-_FOLDER_="$1"
-_RES_FILE_="$(pwd)/dup_res.txt"
-_REGEX_FIND_="^.*"
+varFolder="$1"
+varResultFile="$(pwd)/duplication-result.txt"
+varSafeToDelete="$(pwd)/safe-to-delete.txt"
+varRegexFind="^.*$"
 
 # List of Colors
-Light_Red="\033[1;31m"
-Light_Green="\033[1;32m"
-Yellow="\033[1;33m"
-Light_Blue="\033[1;34m"
-Light_Purple="\033[1;35m"
-Light_Cyan="\033[1;36m"
-Bold_White="\033[1;37m"
-NoColor="\033[0m"
+varColorLightRed="\033[1;31m"
+varColorLightGreen="\033[1;32m"
+varColorYellow="\033[1;33m"
+varColorLightBlue="\033[1;34m"
+varColorLightPurple="\033[1;35m"
+varColorLightCyan="\033[1;36m"
+varColorBoldWhite="\033[1;37m"
+varNoColor="\033[0m"
 
-# END ============================================= VAR
+varTotalDuplicate=0
 
-_TD_=0
 
-function print(){
-    String_=$1
-    Mode_=$2
-    Info_=$3
 
-    if [[ $Mode_ == "title" ]]; then
-        printf "\t\t${Bold_White} %s ${NoColor}" "$String_"
+# ========================================================== Func
 
-    elif [[ $Mode_ == "header" ]]; then
-        printf "\n\n [+] ${Light_Cyan}%s ${NoColor}\n" "$String_"
+function funcPrint(){
+    varMessage=$1
+    varMode=$2
+    varAddInfo=$3
 
-    elif [[ $Mode_ == "sub" ]]; then
-        String_=$(echo "$String_" | sed 's/ /*/g')
-        printf "%-50s" "**|--[+]*$String_*" | sed 's/ /./g' | sed 's/*/ /g'
+    if [[ $varMode == "title" ]]; then
+        printf "\t\t${varColorBoldWhite} %s ${varNoColor}" "$varMessage"
 
-    elif [[ $Mode_ == "sub-res" ]]; then
-        String_=$(echo "$String_" | sed 's/*/ /g' | awk '{printf "%s (%s)", $2, $1}')
-        printf "      |--[+]${Light_Purple} %s ${NoColor}\n" "$String_"
+    elif [[ $varMode == "header" ]]; then
+        printf "\n\n [+] ${varColorLightCyan}%s ${varNoColor}\n" "$varMessage"
 
-    elif [[ $Mode_ == "summary" ]]; then
-        printf "  |--[+] %-20s => %s\n" "$String_" "$Info_"
+    elif [[ $varMode == "sub" ]]; then
+        varMessage=$(echo "$varMessage" | sed 's/ /*/g')
+        printf "%-50s" "**|--[+]*$varMessage*" | sed 's/ /./g' | sed 's/*/ /g'
+
+    elif [[ $varMode == "sub-res" ]]; then
+        varMessage=$(echo "$varMessage" | sed 's/*/ /g' | awk '{printf "%s (%s)", $2, $1}')
+        printf "      |--[+]${varColorLightPurple} %s ${varNoColor}\n" "$varMessage"
+
+    elif [[ $varMode == "summary" ]]; then
+        printf "  |--[+] %-20s => %s\n" "$varMessage" "$varAddInfo"
 
     else
         n=1
         while read -r line; do
             printf "      |   |--[ %s ]   %s \n" "$n" "$line"
-            echo "== $line" >> $_RES_FILE_ 2>&1
+            echo "== $line" >> $varResultFile 2>&1
+            
+            if [[ n -ge 2 ]]; then
+                echo "$line" >> $varSafeToDelete 2>&1
+            fi
+
             n=$(( $n+1 ))
         done
         echo "      |"
@@ -55,52 +63,65 @@ function print(){
     fi
 }
 
-
-function check(){
+function funcCheck(){
     if [[ $? -eq 0 && ${PIPESTATUS[0]} -eq 0 ]]; then
-        echo -e "${Light_Green} [ Success ]${NoColor}"
+        echo -e "${varColorLightGreen} [ Success ]${varNoColor}"
     else
-        echo -e "${Light_Red} [ Failed  ]${NoColor}"
+        echo -e "${varColorLightRed} [ Failed  ]${varNoColor}"
     fi
 }
 
+
+
+# ========================================================== Logic
+
 function main(){
-    _start_script_=$(date +%s)
-    print "DUPLICATION CHECKER" title
 
-    print "CHECK" header
-    print "Remove Result File" sub
-    rm -rf $_RES_FILE_
-    check
-
-    print "Checking Duplication" sub
-    find $_FOLDER_ -type f -regex "$_REGEX_FIND_" | xargs -I {} -n 1 -P 50 md5sum {} >> $_RES_FILE_ 2>&1
-    check
+    varStartTime=$(date +%s)
 
 
-    print "RESULT" header
-    print "Parsing Result" sub
-    duplication_=$(cat $_RES_FILE_ | awk '{print $1}' | sort -k 1 | uniq -cd | sed 's/^[[:blank:]]*//;s/ /*/g' | sort -t '*' -nk 1,1)
-    check
-    
-    for i in $duplication_; do
-        _TD_=$(( $_TD_+1 ))
-        print $i sub-res
-        cat $_RES_FILE_ | grep $(echo $i | awk -F '*' '{print $2}') | cut -c 35- | print
-    done
-    print "LIST DONE" sub-res
+    funcPrint "DUPLICATION CHECKER" title
+        [ -z "$varFolder" ] && funcPrint "No params given" header && exit 2
 
-    _end_script_=$(date +%s)
-    _runtime_script_=$(($_end_script_-$_start_script_))
-    hours=$((_runtime_script_ / 3600)); minutes=$(( (_runtime_script_ % 3600) / 60 )); seconds=$(( (_runtime_script_ % 3600) % 60 ))
+        funcPrint "CHECK" header
+            funcPrint "Remove Result File" sub
+                rm -rf $varResultFile $varSafeToDelete
+            funcCheck
 
-    print "SUMMARY" header
-    print "Time" summary "$hours : $minutes : $seconds"
-    print "Folder" summary "$_FOLDER_"
-    print "Result File" summary "$_RES_FILE_"
-    print "Scanned File" summary "$(cat $_RES_FILE_ | grep -iE '^\w+' | wc -l) File(s)"
-    print "Total Duplication" summary "$_TD_ Item(s)"
-    print "Total Identic File" summary "$(cat $_RES_FILE_ | grep -iE '^==' | wc -l) File(s)"
+            funcPrint "Checking Duplication" sub
+                find $varFolder -type f -regextype egrep -iregex "$varRegexFind" -print0 \
+                | xargs -0IX -n1 -P0 bash -c 'md5sum "X" >> '"$varResultFile"' 2> errFind.log'
+            funcCheck
+
+        funcPrint "RESULT" header
+            funcPrint "Parsing Result" sub
+                varListDuplication=$(awk '{print $1}' $varResultFile | sort -k1 | uniq -cd | sed 's/^[[:blank:]]*//; s/ /*/g' | sort -t '*' -nk 1,1)
+            funcCheck
+        
+            for i in $varListDuplication; do
+                varTotalDuplicate=$(( $varTotalDuplicate+1 ))
+                funcPrint $i sub-res
+                grep $(echo $i | awk -F '*' '{print $2}') $varResultFile | cut -c 35- | funcPrint
+            done
+            
+            funcPrint "LIST DONE" sub-res
+
+
+
+    varEndTime=$(date +%s)
+    varRuntime=$(($varEndTime-$varStartTime))
+    varTotalHours=$((varRuntime / 3600)); varTotalMinutes=$(( (varRuntime % 3600) / 60 )); varTotalSeconds=$(( (varRuntime % 3600) % 60 ))
+
+    funcPrint "SUMMARY" header
+    funcPrint "Time" summary "$varTotalHours : $varTotalMinutes : $varTotalSeconds"
+    funcPrint "Scanned File" summary "$(grep -iE '^\w+' $varResultFile | wc -l) File(s)"
+    funcPrint "Total Duplication" summary "$varTotalDuplicate Item(s)"
+    funcPrint "Total Identic File" summary "$(grep -iE '^==' $varResultFile | wc -l) File(s)"
+    funcPrint "Folder" summary "$varFolder"
+    funcPrint "Result File" summary "$varResultFile"
+    funcPrint "Safe to delete" summary "$varSafeToDelete"
+
+
 }
 
 clear
